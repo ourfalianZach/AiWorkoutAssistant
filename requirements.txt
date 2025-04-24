@@ -1,0 +1,7 @@
+openai
+python-dotenv
+streamlit
+pydantic
+typing
+psycopg2-binary
+bcrypt
