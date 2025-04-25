@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional, List
 import json
 from dataclasses import dataclass
-import psycopg2
 
 
 @dataclass
@@ -32,31 +31,12 @@ class WorkoutPlan:
 
 class AssistantType(BaseModel):
     assistant_type: Literal["workout_planner", "nutrition_planner"] = Field(
-        description="The type of assista    nce being requested"
+        description="The type of assistance being requested"
     )
     confidence_score: float = Field(description="Confidence score between 0 and 1")
     description: str = Field(
         description="A cleaned up description of the assistance being requested"
     )
-
-
-def what_to_do(query: str) -> AssistantType:
-    prompt = prompt = (
-        f"My request is: '{query}'. I'm an advanced gym goer and need help."
-    )
-    response = openai.beta.chat.completions.parse(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": "Classify the user's request as either 'workout_planner' or 'nutrition_planner'. Return a confidence score (0 to 1) and a short description of the request.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-        response_format=AssistantType,
-    )
-    return response.choices[0].message.parsed
 
 
 def generate_workout_plan(goal: str, time: int, days: int):
@@ -176,9 +156,9 @@ def save_workout_plan(plan: WorkoutPlan, conn):
             cursor.execute(
                 """
                 INSERT INTO workout_exercises (
-                    day_id, name, sets, reps, rest_time, weight, duration
+                    day_id, name, sets, reps, rest_time, weight
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     day_id,
@@ -187,10 +167,17 @@ def save_workout_plan(plan: WorkoutPlan, conn):
                     ex.reps,
                     ex.rest_time,
                     ex.weight,
-                    getattr(ex, "duration", None),
                 ),
             )
 
     conn.commit()
     cursor.close()
-    print("✅ Workout plan saved to PostgreSQL.")
+
+
+def delete_workout_plan(conn, plan_id):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM workout_plans WHERE id = %s", (plan_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
