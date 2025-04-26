@@ -1,7 +1,4 @@
 import streamlit as st
-import psycopg2
-import psycopg2.extras
-import bcrypt
 from dotenv import load_dotenv
 import os
 import openai
@@ -14,96 +11,17 @@ from workoutPlanner import (
     WorkoutDay,
     delete_workout_plan,
 )
-
+from appSetup import (
+    register_user,
+    login_user,
+    logout_user,
+    get_all_plans,
+    get_days_and_exercises,
+)
 
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-
-def register_user():
-    st.sidebar.subheader("📝 Register")
-    new_email = st.sidebar.text_input("Email", key="register_email")
-    new_password = st.sidebar.text_input(
-        "Password", type="password", key="register_password"
-    )
-    if st.sidebar.button("Register"):
-        if not new_email or not new_password:
-            st.error("Please fill in both fields.")
-            return
-
-        hashed_pw = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-
-        try:
-            conn = get_db_connection()
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO users (email, password) VALUES (%s, %s)",
-                    (new_email, hashed_pw),
-                )
-                conn.commit()
-                st.success("✅ Registered! Please log in.")
-        except psycopg2.errors.UniqueViolation:
-            st.error("❌ Email already registered.")
-        finally:
-            conn.close()
-
-
-def login_user():
-    st.sidebar.subheader("🔐 Login")
-    email = st.sidebar.text_input("Email", key="login_email")
-    password = st.sidebar.text_input("Password", type="password", key="login_password")
-
-    if st.sidebar.button("Log In"):
-        conn = get_db_connection()
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM users WHERE email = %s", (email,))
-            user = cur.fetchone()
-        conn.close()
-
-        if user and bcrypt.checkpw(password.encode(), user["password"].encode()):
-            st.session_state.user_email = user["email"]
-            st.session_state.just_logged_in = True
-            st.rerun()
-        else:
-            st.error("Invalid credentials.")
-
-
-def logout_user():
-    if st.sidebar.button("Log Out"):
-        st.session_state.pop("user_email", None)
-        st.session_state.pop("just_logged_in", None)
-        st.rerun()
-
-
-def get_all_plans(conn, user_email):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, goal, days_per_week, created_at
-            FROM workout_plans
-            WHERE user_email = %s
-            ORDER BY created_at DESC
-        """,
-            (user_email,),
-        )
-        return cur.fetchall()
-
-
-def get_days_and_exercises(conn, plan_id):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT wd.id, wd.day_name, wd.focus,
-                   we.name, we.sets, we.reps, we.rest_time, we.weight
-            FROM workout_days wd
-            JOIN workout_exercises we ON wd.id = we.day_id
-            WHERE wd.plan_id = %s
-            ORDER BY wd.id, we.id
-        """,
-            (plan_id,),
-        )
-        return cur.fetchall()
 
 
 # APP LOGIC STARTS HERE
@@ -112,6 +30,7 @@ st.set_page_config(page_title="🏋️ AI Workout Viewer")
 
 if "user_email" not in st.session_state:
     st.sidebar.title("🔐 Account Access")
+    # App waits for user to log in or register
     register_user()
     login_user()
     st.stop()
