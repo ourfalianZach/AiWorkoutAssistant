@@ -28,6 +28,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 st.set_page_config(page_title="🏋️ AI Workout Viewer")
 
+
 if "user_email" not in st.session_state:
     st.sidebar.title("🔐 Account Access")
     # App waits for user to log in or register
@@ -68,14 +69,15 @@ try:
 
         st.subheader(plan_labels[selected_index])
 
-        # ... (delete logic + display logic here)
+        # delete logic + display logic here
 
         # Show plan summary
         st.caption(f"Created on {plans[selected_index][3]}")
 
-        # --- Delete Option UI ---
+        # Delete Option UI
 
         with st.expander("⚙️ Plan Actions"):
+            # if you click on delete plan, it will show the confirm window
             if st.button("🗑️ Delete this plan"):
                 st.session_state.show_confirm = True
 
@@ -108,10 +110,15 @@ try:
         data = get_days_and_exercises(conn, selected_plan_id)
         current_day = None
         for row in data:
+            # instead of row[0], row[1] ... we use day_id, day_name ...
             day_id, day_name, focus, name, sets, reps, rest_time, weight = row
+
             if day_name != current_day:
+                # using html to display day and focus
                 st.markdown(f"<h4>{day_name} – {focus}</h4>", unsafe_allow_html=True)
                 current_day = day_name
+
+            # displays each exercise in a row
             st.markdown(
                 f"- **{name}**: {sets}x{reps}, Rest: {rest_time}s"
                 + (f", Weight: {weight} lbs" if weight else "")
@@ -125,48 +132,66 @@ except Exception as e:
 
 st.title("🧠 Create a Workout Plan")
 option = st.radio(
-    "Choose how you'd like to create your plan:", ["Use GPT (AI)", "Input manually"]
+    "Choose how you'd like to create your plan:",
+    ["Use GPT (AI)", "Input manually"],
+    key="option",
+    index=None,
 )
 
+
 if option == "Use GPT (AI)":
-    if st.session_state.get("just_saved"):
-        for field in ["goal", "time", "days"]:
-            st.session_state.pop(field, None)
-        st.session_state.pop("just_saved")
-
-    goal = st.text_input("What is your goal?", key="goal")
-    time = st.number_input(
-        "How many minutes per day?", min_value=10, step=5, key="time"
+    goal = st.text_input(
+        "What is your goal?",
+        # if goal is not in session state, it will be an empty string
+        value=st.session_state.get("goal", ""),
+        key="goal",
     )
-    days = st.slider("How many days per week?", 1, 7, key="days")
-
+    time = st.number_input(
+        "How many minutes per day?",
+        min_value=10,
+        step=5,
+        value=st.session_state.get("time", 60),
+        key="time",
+    )
+    days = st.slider(
+        "How many days per week?",
+        1,
+        7,
+        value=st.session_state.get("days", 3),
+        key="days",
+    )
+    # if all the fields are filled, the button will be enabled
     if st.button("Generate with AI") and goal and time and days:
+        # creates a spinner to show that the plan is being generated
         with st.spinner("Generating plan..."):
             response = generate_workout_plan(goal, time, days)
             workout_plan = parse_workout_plan(response)
             workout_plan.user_email = st.session_state.user_email
             st.session_state.generated_plan = workout_plan
             st.success("✅ Plan generated!")
-
+# if the plan is generated, it will show the edit plan UI
 if st.session_state.get("generated_plan"):
     plan = st.session_state.generated_plan
     st.subheader("📝 Edit Your Plan Before Saving")
 
     updated_days = []
+    # for each day in the plan, it will show the day name and focus
     for i, day in enumerate(plan.workout_days):
         st.markdown(f"### {day.day_name} – {day.focus}")
         updated_exercises = []
         ex_key = f"exercise_count_{i}"
+        # Has streamlit already created the exercise count for this day?
         if ex_key not in st.session_state:
             st.session_state[ex_key] = len(day.exercises)
-
-        for j in range(st.session_state[ex_key]):
+        # if the exercise count is not in the session state, it will be created
+        for j in range(st.session_state[ex_key]):  # for each exercise in the day
             key_prefix = f"{i}_{j}"
-            if j < len(day.exercises):
+            if j < len(day.exercises):  # if 'j' is an original workout
                 ex = day.exercises[j]
-            else:
+            else:  # if 'j' is a new workout added by user
                 ex = Exercise(name="", sets=3, reps=10, rest_time=60, weight=None)
 
+            # creates a column for each input field
             col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 1, 1, 1, 1])
             with col1:
                 name = st.text_input(
@@ -205,6 +230,7 @@ if st.session_state.get("generated_plan"):
             with col6:
                 remove = st.checkbox("❌ Remove", key=f"ex_remove_{key_prefix}")
 
+            # if the remove checkbox is not checked, the exercise will be added to the updated exercises list
             if not remove:
                 updated_exercises.append(
                     Exercise(
@@ -215,16 +241,18 @@ if st.session_state.get("generated_plan"):
                         weight=weight if weight != 0 else None,
                     )
                 )
-
+        # if the add exercise button is clicked, the exercise count will be incremented
         if st.button(f"➕ Add Exercise to {day.day_name}", key=f"add_exercise_btn_{i}"):
             st.session_state[ex_key] += 1
 
+        # adds the updated exercises to the updated days list
         updated_days.append(
             WorkoutDay(
                 day_name=day.day_name, focus=day.focus, exercises=updated_exercises
             )
-        )
+        )  # end of for loop, it appends days whether updated or not to the updated days list
 
+    # after all days are updated, the plan will be updated
     plan.workout_days = updated_days
 
     if st.button("💾 Save this plan"):
@@ -232,8 +260,11 @@ if st.session_state.get("generated_plan"):
         save_workout_plan(plan, conn)
         conn.close()
         st.success("🎉 Plan saved to your account!")
+        # deletes the fields from the session state so text fields are empty
+        for field in ["goal", "time", "days"]:
+            if field in st.session_state:
+                del st.session_state[field]
 
-        st.session_state["just_saved"] = True
         del st.session_state["generated_plan"]
 
         st.rerun()
