@@ -125,33 +125,75 @@ def parse_workout_plan(response: str) -> WorkoutPlan:
     )
 
 
-def save_workout_plan(plan: WorkoutPlan, conn):
+def delete_workout_plan(conn, plan_id):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM workout_plans WHERE id = %s", (plan_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+
+def clear_workout_plan_data(conn, plan_id):
     cursor = conn.cursor()
 
-    # 1. Insert into workout_plans
+    # First delete exercises tied to the plan's days
     cursor.execute(
         """
-        INSERT INTO workout_plans (goal, days_per_week, user_email)
-        VALUES (%s, %s, %s)
-        RETURNING id;
+        DELETE FROM workout_exercises
+        WHERE day_id IN (
+            SELECT id FROM workout_days WHERE plan_id = %s
+        )
         """,
-        (plan.goal, plan.days_per_week, getattr(plan, "user_email", None)),
+        (plan_id,),
     )
-    plan_id = cursor.fetchone()[0]
 
-    # 2. Insert each WorkoutDay
-    for day in plan.workout_days:
+    # Then delete the days
+    cursor.execute(
+        """
+        DELETE FROM workout_days
+        WHERE plan_id = %s
+        """,
+        (plan_id,),
+    )
+
+    conn.commit()
+
+
+def save_workout_plan(plan, conn, plan_id=None):
+    cursor = conn.cursor()
+
+    if plan_id:
+        # Existing plan: update workout_plans basic info if needed (optional)
         cursor.execute(
             """
-            INSERT INTO workout_days (plan_id, day_name, focus)
-            VALUES (%s, %s, %s)
-            RETURNING id;
+            UPDATE workout_plans
+            SET goal = %s,
+                days_per_week = %s
+            WHERE id = %s
             """,
+            (plan.goal, plan.days_per_week, plan_id),
+        )
+    else:
+        # New plan: insert into workout_plans
+        cursor.execute(
+            """
+            INSERT INTO workout_plans (user_email, goal, days_per_week)
+            VALUES (%s, %s, %s)
+            RETURNING id
+            """,
+            (plan.user_email, plan.goal, plan.days_per_week),
+        )
+        plan_id = cursor.fetchone()[0]
+
+    # Now insert workout_days and workout_exercises
+    for day in plan.workout_days:
+        cursor.execute(
+            "INSERT INTO workout_days (plan_id, day_name, focus) VALUES (%s, %s, %s) RETURNING id",
             (plan_id, day.day_name, day.focus),
         )
         day_id = cursor.fetchone()[0]
 
-        # 3. Insert each Exercise
         for ex in day.exercises:
             cursor.execute(
                 """
@@ -160,24 +202,7 @@ def save_workout_plan(plan: WorkoutPlan, conn):
                 )
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (
-                    day_id,
-                    ex.name,
-                    ex.sets,
-                    ex.reps,
-                    ex.rest_time,
-                    ex.weight,
-                ),
+                (day_id, ex.name, ex.sets, ex.reps, ex.rest_time, ex.weight),
             )
 
     conn.commit()
-    cursor.close()
-
-
-def delete_workout_plan(conn, plan_id):
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("DELETE FROM workout_plans WHERE id = %s", (plan_id,))
-        conn.commit()
-    except Exception:
-        conn.rollback()

@@ -10,6 +10,8 @@ from workoutPlanner import (
     Exercise,
     WorkoutDay,
     delete_workout_plan,
+    clear_workout_plan_data,
+    WorkoutPlan,
 )
 from appSetup import (
     register_user,
@@ -42,6 +44,7 @@ else:
     if st.session_state.get("just_logged_in"):
         st.session_state.just_logged_in = False
         st.success(f"🎉 Welcome, {st.session_state.user_email}!")
+
 
 if st.session_state.get("deleted_success"):
     st.success("✅ Plan deleted successfully!")
@@ -77,6 +80,56 @@ try:
         # Delete Option UI
 
         with st.expander("⚙️ Plan Actions"):
+            # EDIT PLAN LOGIC
+            if st.button("✏️ Edit this plan"):
+                data = get_days_and_exercises(conn, selected_plan_id)
+
+                workout_days = []
+                current_day_id = None
+                current_day = None
+                exercises = []
+
+                for row in data:
+                    day_id, day_name, focus, ex_name, sets, reps, rest_time, weight = (
+                        row
+                    )
+                    # is this a new day?
+                    if day_id != current_day_id:
+                        if current_day:
+                            current_day.exercises = exercises
+                            workout_days.append(current_day)
+                        current_day = WorkoutDay(
+                            day_name=day_name, focus=focus, exercises=[]
+                        )
+                        exercises = []
+                        current_day_id = day_id
+
+                    exercises.append(
+                        Exercise(
+                            name=ex_name,
+                            sets=sets,
+                            reps=reps,
+                            rest_time=rest_time,
+                            weight=weight,
+                        )
+                    )
+
+                if current_day:
+                    current_day.exercises = exercises
+                    workout_days.append(current_day)
+
+                st.session_state.generated_plan = WorkoutPlan(
+                    goal=plans[selected_index][1],
+                    days_per_week=plans[selected_index][2],
+                    workout_days=workout_days,
+                    user_email=st.session_state.user_email,
+                )
+                st.session_state.editing_plan_id = selected_plan_id
+
+                st.success("✏️ Plan loaded for editing!")
+                st.session_state.scroll_to_edit = True
+                st.rerun()
+            # DELETE PLAN LOGIC
             # if you click on delete plan, it will show the confirm window
             if st.button("🗑️ Delete this plan"):
                 st.session_state.show_confirm = True
@@ -131,6 +184,8 @@ except Exception as e:
 
 
 st.title("🧠 Create a Workout Plan")
+
+
 option = st.radio(
     "Choose how you'd like to create your plan:",
     ["Use GPT (AI)", "Input manually"],
@@ -257,7 +312,14 @@ if st.session_state.get("generated_plan"):
 
     if st.button("💾 Save this plan"):
         conn = get_db_connection()
-        save_workout_plan(plan, conn)
+
+        if "editing_plan_id" in st.session_state:
+            clear_workout_plan_data(conn, st.session_state.editing_plan_id)
+            save_workout_plan(plan, conn, plan_id=st.session_state.editing_plan_id)
+            del st.session_state["editing_plan_id"]
+        else:
+            save_workout_plan(plan, conn)
+
         conn.close()
         st.success("🎉 Plan saved to your account!")
         # deletes the fields from the session state so text fields are empty

@@ -79,6 +79,7 @@ def get_all_plans(conn, user_email):
         return cur.fetchall()
 
 
+# one row per exercise
 def get_days_and_exercises(conn, plan_id):
     with conn.cursor() as cur:
         cur.execute(
