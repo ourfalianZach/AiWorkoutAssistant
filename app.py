@@ -2,7 +2,7 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import openai
-from db import get_db_connection
+from appSetup import get_db_connection
 from workoutPlanner import (
     generate_workout_plan,
     parse_workout_plan,

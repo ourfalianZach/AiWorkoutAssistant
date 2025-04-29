@@ -3,7 +3,7 @@ import psycopg2
 import psycopg2.extras
 import bcrypt
 from dotenv import load_dotenv
-from db import get_db_connection
+import os
 
 load_dotenv()
 
@@ -94,3 +94,13 @@ def get_days_and_exercises(conn, plan_id):
             (plan_id,),
         )
         return cur.fetchall()
+
+
+# connect to db
+def get_db_connection():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+    )
