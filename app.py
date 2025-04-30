@@ -2,7 +2,6 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import openai
-from appSetup import get_db_connection
 from workoutPlanner import (
     generate_workout_plan,
     parse_workout_plan,
@@ -19,6 +18,7 @@ from appSetup import (
     logout_user,
     get_all_plans,
     get_days_and_exercises,
+    get_db_connection,
 )
 
 load_dotenv()
@@ -233,6 +233,86 @@ if option == "Use GPT (AI)":
             workout_plan.user_email = st.session_state.user_email
             st.session_state.generated_plan = workout_plan
             st.success("✅ Plan generated!")
+elif option == "Input manually":
+    st.subheader("📝 Create Your Plan Manually")
+    manual_goal = st.text_input("Goal:")
+    num_days = st.number_input(
+        "Days per week", min_value=1, step=1, key="num_manual_days"
+    )
+
+    manual_workout_days = []
+
+    for i in range(int(num_days)):
+        ex_key = f"manual_exercise_count_{i}"
+        if ex_key not in st.session_state:
+            st.session_state[ex_key] = 1  # default exercise is 1
+
+        st.markdown(f"### Day {i + 1}")
+        focus = st.text_input(f"Focus {i + 1}", key=f"focus_{i}")
+        exercises = []
+
+        for j in range(st.session_state[ex_key]):
+            st.markdown(f"**Exercise {j + 1}**")
+            name = st.text_input("Exercise Name", key=f"ex_name_{i}_{j}")
+            sets = st.number_input("Sets", min_value=1, value=3, key=f"ex_sets_{i}_{j}")
+            reps = st.number_input(
+                "Reps", min_value=1, value=10, key=f"ex_reps_{i}_{j}"
+            )
+            rest = st.number_input(
+                "Rest (seconds)",
+                min_value=0,
+                value=60,
+                key=f"ex_rest_{i}_{j}",
+            )
+            weight = st.number_input(
+                "Weight (lbs)", min_value=0, value=0, key=f"ex_weight_{i}_{j}"
+            )
+            exercises.append(
+                Exercise(
+                    name=name,
+                    sets=sets,
+                    reps=reps,
+                    rest_time=rest,
+                    weight=weight or None,
+                )
+            )
+        manual_workout_days.append(
+            WorkoutDay(day_name=f"Day {i + 1}", focus=focus, exercises=exercises)
+        )
+        if st.button(
+            f" Add Exercise to Day {i + 1}", key=f"add_manual_exercise_btm_{i}"
+        ):
+            st.session_state[ex_key] += 1
+    if st.button("💾 Save Manual Plan"):
+        manual_plan = WorkoutPlan(
+            goal=manual_goal,
+            days_per_week=len(manual_workout_days),
+            workout_days=manual_workout_days,
+            user_email=st.session_state.user_email,
+        )
+        conn = get_db_connection()
+        save_workout_plan(manual_plan, conn)
+        conn.close()
+        st.success("✅ Manual plan saved!")
+        # Reset exercise count for each day to 1 after saving
+        for i in range(len(manual_workout_days)):
+            st.session_state[f"manual_exercise_count_{i}"] = 1
+        # Clear manual input session state so form fields disappear
+        del st.session_state["option"]
+        st.session_state["option"] = None
+        del st.session_state["num_manual_days"]
+        for i in range(len(manual_workout_days)):
+            del st.session_state[f"focus_{i}"]
+            ex_key = f"manual_exercise_count_{i}"
+            for j in range(st.session_state[ex_key]):
+                for field in ["name", "sets", "reps", "rest", "weight"]:
+                    key = f"ex_{field}_{i}_{j}"
+                    if key in st.session_state:
+                        del st.session_state[key]
+            del st.session_state[ex_key]
+        st.rerun()
+
+
 # if the plan is generated, it will show the edit plan UI
 if st.session_state.get("generated_plan"):
     plan = st.session_state.generated_plan
@@ -337,5 +417,5 @@ if st.session_state.get("generated_plan"):
                 del st.session_state[field]
 
         del st.session_state["generated_plan"]
-
+        st.session_state["option"] = None
         st.rerun()
