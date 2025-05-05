@@ -59,7 +59,7 @@ try:
     plans = get_all_plans(conn, st.session_state.user_email)
 
     if not plans:
-        st.warning("No workout plans found for your account.")
+        st.warning("No workout plans found for your account! Please create a new plan.")
         conn.close()
     else:
         # Render dropdown and plan viewer
