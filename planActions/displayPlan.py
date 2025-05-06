@@ -20,7 +20,7 @@ def display_plan(conn, selected_plan_id):
             f"- **{name}**: {sets}x{reps}, Rest: {rest_time}s"
             + (f", Weight: {weight} lbs" if weight else "")
         )
-        with st.expander(f"📈 Log Progress for {name}"):
+        with st.expander(f"📈 Log Your Progress for {name}"):
             sets_done = st.number_input(
                 "Sets done", min_value=0, key=f"sets_{day_id}_{name}"
             )
