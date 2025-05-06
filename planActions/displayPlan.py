@@ -1,5 +1,6 @@
 import streamlit as st
-from appSetup import get_days_and_exercises
+from appSetup import get_days_and_exercises, get_db_connection
+from workoutPlanner import save_progress
 
 
 def display_plan(conn, selected_plan_id):
@@ -19,3 +20,29 @@ def display_plan(conn, selected_plan_id):
             f"- **{name}**: {sets}x{reps}, Rest: {rest_time}s"
             + (f", Weight: {weight} lbs" if weight else "")
         )
+        with st.expander(f"📈 Log Progress for {name}"):
+            sets_done = st.number_input(
+                "Sets done", min_value=0, key=f"sets_{day_id}_{name}"
+            )
+            reps_done = st.number_input(
+                "Reps done", min_value=0, key=f"reps_{day_id}_{name}"
+            )
+            weight_used = st.number_input(
+                "Weight used (lbs)", min_value=0, key=f"weight_{day_id}_{name}"
+            )
+            notes = st.text_area("Notes (optional)", key=f"notes_{day_id}_{name}")
+
+            if st.button("Save Progress", key=f"save_progress_{day_id}_{name}"):
+                conn = get_db_connection()
+                save_progress(
+                    conn,
+                    st.session_state.user_email,
+                    name,
+                    day_name,
+                    sets_done,
+                    reps_done,
+                    weight_used,
+                    notes,
+                )
+                conn.close()
+                st.success("✅ Progress saved!")
