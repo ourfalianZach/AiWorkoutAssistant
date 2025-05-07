@@ -29,7 +29,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # APP LOGIC STARTS HERE
 
-st.set_page_config(page_title="🏋️ Workout Viewer")
+st.set_page_config(page_title="🏋️ AI Workout Viewer")
 tabs = st.tabs(["Workout Plan", "Progress Tracker"])
 with tabs[0]:
     if "user_email" not in st.session_state:
