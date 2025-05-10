@@ -209,15 +209,23 @@ def save_workout_plan(plan, conn, plan_id=None):
 
 
 def save_progress(
-    conn, user_email, exercise_name, day_name, sets_done, reps_done, weight_used, notes
+    conn,
+    user_email,
+    exercise_name,
+    day_name,
+    sets_done,
+    reps_done,
+    weight_used,
+    notes,
+    plan_id,
 ):
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO workout_progress (
-                user_email, exercise_name, day_name, sets_done, reps_done, weight_used, notes
+                user_email, exercise_name, day_name, sets_done, reps_done, weight_used, notes, plan_id
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
             (
                 user_email,
@@ -227,6 +235,7 @@ def save_progress(
                 reps_done,
                 weight_used,
                 notes,
+                plan_id,
             ),
         )
         conn.commit()

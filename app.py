@@ -21,6 +21,8 @@ from appSetup import (
 from planActions.editPlan import edit_plan
 from planActions.deletePlan import delete_plan
 from planActions.displayPlan import display_plan
+from progressActions.editProgress import edit_progress
+from progressActions.deleteProgress import deleteProgress
 
 load_dotenv()
 
@@ -30,22 +32,23 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # APP LOGIC STARTS HERE
 
 st.set_page_config(page_title="🏋️ AI Workout Viewer")
+
+if "user_email" not in st.session_state:
+    st.sidebar.title("🔐 Account Access")
+    # App waits for user to log in or register
+    register_user()
+    login_user()
+    st.stop()
+else:
+    st.sidebar.success(f"Logged in as: {st.session_state.user_email}")
+    logout_user()
+
+    if st.session_state.get("just_logged_in"):
+        st.session_state.just_logged_in = False
+        st.success(f"🎉 Welcome, {st.session_state.user_email}!")
+
 tabs = st.tabs(["Workout Plan", "Progress Tracker"])
 with tabs[0]:
-    if "user_email" not in st.session_state:
-        st.sidebar.title("🔐 Account Access")
-        # App waits for user to log in or register
-        register_user()
-        login_user()
-        st.stop()
-    else:
-        st.sidebar.success(f"Logged in as: {st.session_state.user_email}")
-        logout_user()
-
-        if st.session_state.get("just_logged_in"):
-            st.session_state.just_logged_in = False
-            st.success(f"🎉 Welcome, {st.session_state.user_email}!")
-
     if st.session_state.get("deleted_success"):
         st.success("✅ Plan deleted successfully!")
         del st.session_state["deleted_success"]
@@ -92,7 +95,7 @@ with tabs[0]:
             delete_plan(conn, selected_plan_id)
 
             # Display selected plan
-            display_plan(conn, selected_plan_id)
+            display_plan(conn, selected_plan_id=selected_plan_id)
 
             conn.close()
 
@@ -348,33 +351,112 @@ with tabs[1]:
     st.title("📈 View Workout Progress")
 
     conn = get_db_connection()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-        SELECT exercise_name, day_name, sets_done, reps_done, weight_used, notes, completed_date
-        FROM workout_progress
-        WHERE user_email = %s
-        ORDER BY completed_date DESC
-        """,
-            (st.session_state.user_email,),
-        )
-        progress = cur.fetchall()
-    conn.close()
+    plans = get_all_plans(conn, st.session_state.user_email)
 
-    if not progress:
-        st.info("No progress data yet. Log some workouts!")
+    if not plans:
+        st.warning("No workout plans found.")
+        conn.close()
     else:
-        import pandas as pd
-
-        df = pd.DataFrame(
-            progress,
-            columns=["Exercise", "Day", "Sets", "Reps", "Weight", "Notes", "Date"],
+        plan_labels = [
+            f"Plan {i + 1}: {goal} ({days} days/week)"
+            for i, (_, goal, days, _) in enumerate(plans)
+        ]
+        selected_label = st.selectbox(
+            "📈 Select a plan to view progress:",
+            plan_labels,
+            key="progress_plan_select",
         )
-        st.dataframe(df)
+        selected_index = plan_labels.index(selected_label)
+        selected_plan_id = plans[selected_index][0]
 
-        if st.checkbox("📊 Show chart by exercise"):
-            exercise_options = df["Exercise"].unique()
-            selected_ex = st.selectbox("Select an exercise", exercise_options)
-            ex_data = df[df["Exercise"] == selected_ex]
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT exercise_name, day_name, sets_done, reps_done, weight_used, notes, completed_date
+                FROM workout_progress
+                WHERE user_email = %s AND plan_id = %s
+                ORDER BY completed_date DESC
+                """,
+                (st.session_state.user_email, selected_plan_id),
+            )
+            progress = cur.fetchall()
+        conn.close()
 
-            st.line_chart(ex_data[["Date", "Weight"]].set_index("Date"))
+        if not progress:
+            st.info("No progress data yet. Log some workouts!")
+        else:
+            import pandas as pd
+
+            df = pd.DataFrame(
+                progress,
+                columns=["Exercise", "Day", "Sets", "Reps", "Weight", "Notes", "Date"],
+            )
+            st.table(df.reset_index(drop=True).style.hide(axis="index"))
+            # --- Edit/Delete Section ---
+            st.markdown("### ✏️ Edit or Delete Progress Entry")
+
+            # Use DataFrame's index for selection
+            selected_row = st.selectbox(
+                "Select a progress entry to modify:",
+                df.index,
+                format_func=lambda i: f"{df.at[i, 'Exercise']} on {df.at[i, 'Date']}",
+            )
+            edit_progress(df, selected_row)
+            # if st.checkbox("Edit selected entry"):
+            #     new_sets = st.number_input(
+            #         "Sets", min_value=1, value=int(df.at[selected_row, "Sets"])
+            #     )
+            #     new_reps = st.number_input(
+            #         "Reps", min_value=1, value=int(df.at[selected_row, "Reps"])
+            #     )
+            #     new_weight = st.number_input(
+            #         "Weight", min_value=0, value=int(df.at[selected_row, "Weight"])
+            #     )
+            #     new_notes = st.text_area(
+            #         "Notes", value=df.at[selected_row, "Notes"] or ""
+            #     )
+
+            #     if st.button("💾 Save Changes"):
+            #         conn = get_db_connection()
+            #         with conn.cursor() as cur:
+            #             cur.execute(
+            #                 "UPDATE workout_progress SET sets_done = %s, reps_done = %s, weight_used = %s, notes = %s WHERE user_email = %s AND completed_date = %s AND exercise_name = %s",
+            #                 (
+            #                     new_sets,
+            #                     new_reps,
+            #                     new_weight,
+            #                     new_notes,
+            #                     st.session_state.user_email,
+            #                     df.at[selected_row, "Date"],
+            #                     df.at[selected_row, "Exercise"],
+            #                 ),
+            #             )
+            #             conn.commit()
+            #         conn.close()
+            #         st.success("✅ Progress entry updated!")
+            #         st.rerun()
+            deleteProgress(df, selected_row)
+            # if st.checkbox("Delete selected entry"):
+            #     if st.button("🗑️ Confirm Delete"):
+            #         conn = get_db_connection()
+            #         with conn.cursor() as cur:
+            #             cur.execute(
+            #                 "DELETE FROM workout_progress WHERE user_email = %s AND completed_date = %s AND exercise_name = %s",
+            #                 (
+            #                     st.session_state.user_email,
+            #                     df.at[selected_row, "Date"],
+            #                     df.at[selected_row, "Exercise"],
+            #                 ),
+            #             )
+            #             conn.commit()
+            #         conn.close()
+            #         st.success("✅ Progress entry deleted!")
+            #         st.rerun()
+
+            # --- End Edit/Delete Section ---
+
+            if st.checkbox("📊 Show chart by exercise"):
+                exercise_options = df["Exercise"].unique()
+                selected_ex = st.selectbox("Select an exercise", exercise_options)
+                ex_data = df[df["Exercise"] == selected_ex]
+                st.line_chart(ex_data[["Date", "Weight"]].set_index("Date"))

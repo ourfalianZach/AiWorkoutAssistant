@@ -43,6 +43,7 @@ def display_plan(conn, selected_plan_id):
                     reps_done,
                     weight_used,
                     notes,
+                    selected_plan_id,
                 )
                 conn.close()
                 st.success("✅ Progress saved!")
