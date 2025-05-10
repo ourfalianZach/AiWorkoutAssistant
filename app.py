@@ -391,7 +391,7 @@ with tabs[1]:
                 progress,
                 columns=["Exercise", "Day", "Sets", "Reps", "Weight", "Notes", "Date"],
             )
-            st.table(df.reset_index(drop=True).style.hide(axis="index"))
+            st.dataframe(df.reset_index(drop=True), use_container_width=True)
             st.markdown("### ✏️ Edit or Delete Progress Entry")
 
             # Use DataFrame's index for selection
