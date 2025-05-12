@@ -392,7 +392,7 @@ with tabs[1]:
                 columns=["Exercise", "Day", "Sets", "Reps", "Weight", "Notes", "Date"],
             )
             st.dataframe(df.reset_index(drop=True), use_container_width=True)
-            st.markdown("### ✏️ Edit or Delete Progress Entry")
+            st.markdown("### ✏️ Modify or Delete Progress Entry")
 
             # Use DataFrame's index for selection
             selected_row = st.selectbox(
