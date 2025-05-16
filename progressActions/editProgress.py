@@ -3,7 +3,7 @@ from appSetup import get_db_connection
 
 
 def edit_progress(df, selected_row):
-    if st.checkbox("Modify selected entry"):
+    if st.checkbox("Edit selected entry"):
         new_sets = st.number_input(
             "Sets", min_value=1, value=int(df.at[selected_row, "Sets"])
         )
