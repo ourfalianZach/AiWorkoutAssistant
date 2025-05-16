@@ -16,7 +16,7 @@ def register_user():
     )
     if st.sidebar.button("Register"):
         if not new_email or not new_password:
-            st.error("Please fill in both fields.")
+            st.error("Please fill both fields in.")
             return
 
         hashed_pw = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
