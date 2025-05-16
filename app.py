@@ -391,18 +391,24 @@ with tabs[1]:
                 progress,
                 columns=["Exercise", "Day", "Sets", "Reps", "Weight", "Notes", "Date"],
             )
-            st.dataframe(df.reset_index(drop=True), use_container_width=True)
+            selected_exercise = st.selectbox(
+                "Select an exercise to view progress:",
+                df["Exercise"].unique(),
+                key="exercise_filter",
+            )
+            filtered_df = df[df["Exercise"] == selected_exercise]
+            st.dataframe(filtered_df.reset_index(drop=True), use_container_width=True)
             st.markdown("### ✏️ Modify or Delete Progress Entry")
 
-            # Use DataFrame's index for selection
+            # Use filtered DataFrame's index for selection
             selected_row = st.selectbox(
                 "Select a progress entry to modify:",
-                df.index,
-                format_func=lambda i: f"{df.at[i, 'Exercise']} on {df.at[i, 'Date']}",
+                filtered_df.index,
+                format_func=lambda i: f"{filtered_df.at[i, 'Exercise']} on {filtered_df.at[i, 'Date']}",
             )
-            edit_progress(df, selected_row)
+            edit_progress(filtered_df, selected_row)
 
-            deleteProgress(df, selected_row)
+            deleteProgress(filtered_df, selected_row)
 
             if st.checkbox("📊 Show chart by exercise"):
                 exercise_options = df["Exercise"].unique()
