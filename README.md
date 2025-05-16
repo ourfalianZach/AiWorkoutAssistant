@@ -7,7 +7,7 @@ AI-Generated Plans (GPT-4)
 	•The user can edit the plan before saving, including adding/removing exercises and modifying sets, reps, and weights.
 
 Manual Plans
-	•Choose number of workout days per week.
+	•Choose the number of workout days per week.
 	•For each day, enter the focus area (e.g., “Chest and Triceps”) and add custom exercises with sets, reps, rest time, and weight.
 	•Dynamic UI lets users add more exercises per day as needed.
 
@@ -49,5 +49,15 @@ Modify or Delete Progress Entries
 •Works with a PostgreSQL database.
 •Environment variables are managed with .env.
 •Built with Streamlit, Python, and OpenAI GPT API.
+
+
+
+<img width="1796" alt="Screenshot 2025-05-16 at 1 36 54 PM" src="https://github.com/user-attachments/assets/2758d280-7103-491d-9bfb-7403b5ef6688" />
+
+
+<img width="1797" alt="Screenshot 2025-05-16 at 1 38 04 PM" src="https://github.com/user-attachments/assets/624efdcf-4c56-4e76-9132-df79743faccb" />
+
+<img width="1765" alt="Screenshot 2025-05-16 at 1 41 57 PM" src="https://github.com/user-attachments/assets/c95a48d9-5308-49b3-a8b7-ace6c76b53cb" />
+
 
 
